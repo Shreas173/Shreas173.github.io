@@ -1,0 +1,40 @@
+name: Update PDF Index
+on:
+  push:
+    paths:
+      - 'notes/**'
+
+jobs:
+  update-index:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Generate PDF list
+        run: |
+          mkdir -p scripts
+          echo 'const fs = require("fs");
+          const pdfs = fs.readdirSync("notes").filter(f => f.endsWith(".pdf"));
+          const list = pdfs.map(pdf => ({
+            name: pdf,
+            size: formatBytes(fs.statSync(`notes/${pdf}`).size),
+            date: new Date(fs.statSync(`notes/${pdf}`).mtime).toLocaleDateString()
+          }));
+          fs.writeFileSync("pdf-list.json", JSON.stringify(list, null, 2));
+          
+          function formatBytes(bytes) {
+            const sizes = ["Bytes", "KB", "MB", "GB"];
+            if (bytes === 0) return "0 Byte";
+            const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+            return Math.round(bytes / Math.pow(1024, i), 2) + " " + sizes[i];
+          }' > scripts/generate-index.js
+          
+          node scripts/generate-index.js
+          
+      - name: Commit changes
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add pdf-list.json
+          git commit -m "Auto-update PDF list" || echo "No changes to commit"
+          git push

@@ -2,112 +2,56 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Math Notes | Catppuccin</title>
-    <link rel="stylesheet" href="styles/catppuccin.css">
-    <link rel="stylesheet" href="styles/icons.css">
+    <title>Dynamic Math Notes</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            /* Catppuccin Mocha colors */
+            --base: #1e1e2e;
+            --text: #cdd6f4;
+            --lavender: #b4befe;
+        }
+        body {
+            background: var(--base);
+            color: var(--text);
+            font-family: sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .pdf-card {
+            background: #313244;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <div class="title-container">
-            <h1>Math Notes</h1>
-            <p>Undergraduate Mathematics Archive</p>
-        </div>
-        <div class="theme-toggle">
-            <i class="fas fa-moon"></i>
-        </div>
-    </header>
-    
-    <main>
-        <div class="search-container">
-            <input type="text" id="search" placeholder="Search notes...">
-            <i class="fas fa-search"></i>
-        </div>
-        
-        <div class="notes-grid" id="notes-container">
-            <!-- Notes will be dynamically loaded here -->
-        </div>
-    </main>
-    
-    <footer>
-        <p>Minimalist Catppuccin Theme • Built with <i class="fas fa-heart"></i></p>
-    </footer>
-    
+    <h1><i class="fas fa-book-open"></i> Math Notes</h1>
+    <div id="pdf-container">
+        <!-- PDFs will load here dynamically -->
+        Loading PDFs...
+    </div>
+
     <script>
-        // PDF note data
-        const mathNotes = [
-            { 
-                title: "Linear Algebra", 
-                filename: "algebra.pdf",
-                category: "Algebra",
-                date: "2023-10-15",
-                size: "2.4 MB"
-            },
-            { 
-                title: "Multivariable Calculus", 
-                filename: "calculus.pdf",
-                category: "Analysis",
-                date: "2023-11-22",
-                size: "3.1 MB"
-            },
-            { 
-                title: "Probability Theory", 
-                filename: "probability.pdf",
-                category: "Statistics",
-                date: "2024-01-10",
-                size: "1.8 MB"
-            },
-            // Add more notes here
-        ];
-
-        // Render notes function
-        function renderNotes(notes) {
-            const container = document.getElementById('notes-container');
-            container.innerHTML = '';
-            
-            notes.forEach(note => {
-                const noteCard = document.createElement('div');
-                noteCard.className = 'note-card';
-                noteCard.innerHTML = `
-                    <div class="card-header">
-                        <div class="file-icon">
-                            <img src="assets/pdf-icon.svg" alt="PDF">
-                        </div>
-                        <div class="card-title">${note.title}</div>
-                    </div>
-                    <div class="card-details">
-                        <div><i class="fas fa-folder"></i> ${note.category}</div>
-                        <div><i class="far fa-calendar"></i> ${note.date}</div>
-                        <div><i class="fas fa-weight-hanging"></i> ${note.size}</div>
-                    </div>
-                    <a href="notes/${note.filename}" class="download-btn" download>
-                        <i class="fas fa-download"></i> Download PDF
-                    </a>
-                `;
-                container.appendChild(noteCard);
-            });
-        }
-
-        // Search functionality
-        document.getElementById('search').addEventListener('input', (e) => {
-            const term = e.target.value.toLowerCase();
-            const filtered = mathNotes.filter(note => 
-                note.title.toLowerCase().includes(term) || 
-                note.category.toLowerCase().includes(term)
-            );
-            renderNotes(filtered);
-        });
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            renderNotes(mathNotes);
-            
-            // Theme toggle
-            document.querySelector('.theme-toggle').addEventListener('click', () => {
-                document.body.classList.toggle('light-mode');
-            });
-        });
+        fetch('pdf-list.json')
+            .then(response => response.json())
+            .then(pdfs => {
+                let html = '';
+                pdfs.forEach(pdf => {
+                    html += `
+                    <div class="pdf-card">
+                        <h3><i class="fas fa-file-pdf"></i> ${pdf.name.replace('.pdf', '')}</h3>
+                        <a href="notes/${pdf.name}" download class="download-btn">
+                            <i class="fas fa-download"></i> Download (${pdf.size})
+                        </a>
+                        <small>Last updated: ${pdf.date}</small>
+                    </div>`;
+                });
+                document.getElementById('pdf-container').innerHTML = html;
+            })
+            .catch(err => console.error('Error loading PDFs:', err));
     </script>
 </body>
 </html>
