@@ -12,59 +12,61 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
         with:
-          node-version: '18'
-          
-      - name: Generate PDF list
+          fetch-depth: 0  # Required to get file metadata
+        
+      - name: Find PDFs
+        id: find-pdfs
         run: |
-          mkdir -p scripts
-          cat > scripts/generate-index.js << 'EOF'
-          const fs = require('fs');
-          const path = require('path');
+          echo "Checking notes directory..."
+          ls -la notes/
           
-          try {
-            const notesDir = path.join(process.env.GITHUB_WORKSPACE, 'notes');
-            const outputFile = path.join(process.env.GITHUB_WORKSPACE, 'pdf-list.json');
-            
-            if (!fs.existsSync(notesDir)) {
-              fs.mkdirSync(notesDir, { recursive: true });
-            }
-            
-            const files = fs.readdirSync(notesDir)
-              .filter(file => file.toLowerCase().endsWith('.pdf'))
-              .map(file => {
-                const stats = fs.statSync(path.join(notesDir, file));
-                return {
-                  name: file,
-                  size: formatBytes(stats.size),
-                  date: stats.mtime.toISOString().split('T')[0]
-                };
-              });
-            
-            fs.writeFileSync(outputFile, JSON.stringify(files, null, 2));
-            
-            function formatBytes(bytes) {
-              const units = ['B', 'KB', 'MB', 'GB'];
-              if (bytes === 0) return '0 B';
-              const i = Math.floor(Math.log(bytes) / Math.log(1024));
-              return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
-            }
-          } catch (error) {
-            console.error('Error generating index:', error);
-            process.exit(1);
-          }
-          EOF
+          # Count PDF files
+          PDF_COUNT=$(find notes -type f -name '*.pdf' | wc -l)
+          echo "Found $PDF_COUNT PDF files"
           
-          node scripts/generate-index.js
+          # Set output for next steps
+          echo "pdf_count=$PDF_COUNT" >> $GITHUB_OUTPUT
+          
+      - name: Generate JSON
+        if: steps.find-pdfs.outputs.pdf_count != '0'
+        run: |
+          echo 'const fs = require("fs");
+          const path = require("path");
+          
+          const pdfs = fs.readdirSync("notes")
+            .filter(f => f.toLowerCase().endsWith(".pdf"))
+            .map(f => {
+              const stat = fs.statSync(path.join("notes", f));
+              return {
+                name: f,
+                size: formatBytes(stat.size),
+                date: stat.mtime.toISOString().split("T")[0]
+              };
+            });
+          
+          fs.writeFileSync("pdf-list.json", JSON.stringify(pdfs, null, 2));
+          
+          function formatBytes(bytes) {
+            const units = ["B", "KB", "MB", "GB"];
+            if (bytes === 0) return "0 B";
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+          }' > generate.js
+          
+          node generate.js
+          cat pdf-list.json
+          
+      - name: Create empty JSON if no PDFs
+        if: steps.find-pdfs.outputs.pdf_count == '0'
+        run: |
+          echo '[]' > pdf-list.json
+          echo "Created empty PDF list"
           
       - name: Commit changes
-        if: always()
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git add pdf-list.json
-          git diff --quiet && git diff --staged --quiet || git commit -m "Auto-update PDF list"
+          git diff --cached --quiet || git commit -m "Update PDF list"
           git push
