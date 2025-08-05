@@ -1,0 +1,5 @@
+title: Math Notes
+description: Undergraduate mathematics notes archive
+theme: jekyll-theme-minimal
+plugins:
+  - jekyll-pdf-embed

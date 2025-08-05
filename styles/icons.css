@@ -1,0 +1,13 @@
+/* Add this if you want custom icon styling */
+.file-icon {
+    /* Default styles already in main CSS */
+}
+
+/* PDF icon styling (if using SVG) */
+.file-icon.pdf {
+    background: rgba(229, 68, 61, 0.1);
+}
+
+.file-icon.pdf svg path {
+    fill: #e5443d;
+}
