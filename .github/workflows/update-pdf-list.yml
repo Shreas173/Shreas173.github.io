@@ -3,6 +3,9 @@ on:
   push:
     paths:
       - 'notes/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 * * * *'  # Hourly updates
 
 jobs:
   update-index:
@@ -10,31 +13,58 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
       - name: Generate PDF list
         run: |
           mkdir -p scripts
-          echo 'const fs = require("fs");
-          const pdfs = fs.readdirSync("notes").filter(f => f.endsWith(".pdf"));
-          const list = pdfs.map(pdf => ({
-            name: pdf,
-            size: formatBytes(fs.statSync(`notes/${pdf}`).size),
-            date: new Date(fs.statSync(`notes/${pdf}`).mtime).toLocaleDateString()
-          }));
-          fs.writeFileSync("pdf-list.json", JSON.stringify(list, null, 2));
+          cat > scripts/generate-index.js << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
           
-          function formatBytes(bytes) {
-            const sizes = ["Bytes", "KB", "MB", "GB"];
-            if (bytes === 0) return "0 Byte";
-            const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-            return Math.round(bytes / Math.pow(1024, i), 2) + " " + sizes[i];
-          }' > scripts/generate-index.js
+          try {
+            const notesDir = path.join(process.env.GITHUB_WORKSPACE, 'notes');
+            const outputFile = path.join(process.env.GITHUB_WORKSPACE, 'pdf-list.json');
+            
+            if (!fs.existsSync(notesDir)) {
+              fs.mkdirSync(notesDir, { recursive: true });
+            }
+            
+            const files = fs.readdirSync(notesDir)
+              .filter(file => file.toLowerCase().endsWith('.pdf'))
+              .map(file => {
+                const stats = fs.statSync(path.join(notesDir, file));
+                return {
+                  name: file,
+                  size: formatBytes(stats.size),
+                  date: stats.mtime.toISOString().split('T')[0]
+                };
+              });
+            
+            fs.writeFileSync(outputFile, JSON.stringify(files, null, 2));
+            
+            function formatBytes(bytes) {
+              const units = ['B', 'KB', 'MB', 'GB'];
+              if (bytes === 0) return '0 B';
+              const i = Math.floor(Math.log(bytes) / Math.log(1024));
+              return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+            }
+          } catch (error) {
+            console.error('Error generating index:', error);
+            process.exit(1);
+          }
+          EOF
           
           node scripts/generate-index.js
           
       - name: Commit changes
+        if: always()
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git add pdf-list.json
-          git commit -m "Auto-update PDF list" || echo "No changes to commit"
+          git diff --quiet && git diff --staged --quiet || git commit -m "Auto-update PDF list"
           git push

@@ -2,56 +2,162 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Dynamic Math Notes</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Notes</title>
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Embedded Catppuccin CSS -->
     <style>
         :root {
-            /* Catppuccin Mocha colors */
+            /* Catppuccin Mocha Palette */
             --base: #1e1e2e;
+            --mantle: #181825;
+            --surface0: #313244;
+            --surface1: #45475a;
             --text: #cdd6f4;
+            --subtext: #a6adc8;
+            --rosewater: #f5e0dc;
             --lavender: #b4befe;
+            --blue: #89b4fa;
+            --sapphire: #74c7ec;
+            --teal: #94e2d5;
         }
+
         body {
             background: var(--base);
             color: var(--text);
-            font-family: sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
             max-width: 800px;
             margin: 0 auto;
             padding: 2rem;
         }
+
+        h1 {
+            color: var(--lavender);
+            font-weight: 300;
+            border-bottom: 1px solid var(--surface0);
+            padding-bottom: 0.5rem;
+        }
+
         .pdf-card {
-            background: #313244;
-            padding: 1rem;
-            margin: 1rem 0;
-            border-radius: 8px;
+            background: var(--surface0);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .pdf-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .pdf-link {
+            color: var(--teal);
+            text-decoration: none;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .pdf-meta {
+            color: var(--subtext);
+            font-size: 0.85rem;
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        #loading, #error {
+            color: var(--rosewater);
+            text-align: center;
+            padding: 2rem;
+            font-size: 1.2rem;
+        }
+
+        /* Responsive fixes */
+        @media (max-width: 600px) {
+            body {
+                padding: 1rem;
+            }
+            .pdf-meta {
+                flex-direction: column;
+                gap: 0.3rem;
+            }
         }
     </style>
 </head>
 <body>
     <h1><i class="fas fa-book-open"></i> Math Notes</h1>
     <div id="pdf-container">
-        <!-- PDFs will load here dynamically -->
-        Loading PDFs...
+        <div id="loading">Loading PDFs...</div>
     </div>
 
     <script>
-        fetch('pdf-list.json')
-            .then(response => response.json())
-            .then(pdfs => {
-                let html = '';
-                pdfs.forEach(pdf => {
-                    html += `
+        document.addEventListener('DOMContentLoaded', async () => {
+            const container = document.getElementById('pdf-container');
+            
+            try {
+                // 1. Fetch the JSON data
+                const response = await fetch('pdf-list.json?t=' + Date.now());
+                
+                // 2. Check for HTTP errors
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}`);
+                }
+                
+                // 3. Verify JSON format
+                const contentType = response.headers.get('content-type');
+                if (!contentType.includes('application/json')) {
+                    throw new Error("Received non-JSON response");
+                }
+                
+                // 4. Process the data
+                const pdfs = await response.json();
+                
+                if (!pdfs || pdfs.length === 0) {
+                    container.innerHTML = `
+                        <div class="error">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <p>No PDFs found in repository</p>
+                            <small>Add files to the 'notes/' folder</small>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // 5. Display PDFs
+                container.innerHTML = pdfs.map(pdf => `
                     <div class="pdf-card">
-                        <h3><i class="fas fa-file-pdf"></i> ${pdf.name.replace('.pdf', '')}</h3>
-                        <a href="notes/${pdf.name}" download class="download-btn">
-                            <i class="fas fa-download"></i> Download (${pdf.size})
+                        <a href="notes/${encodeURIComponent(pdf.name)}" class="pdf-link">
+                            <i class="fas fa-file-pdf"></i> 
+                            ${pdf.name.replace('.pdf', '')}
                         </a>
-                        <small>Last updated: ${pdf.date}</small>
-                    </div>`;
-                });
-                document.getElementById('pdf-container').innerHTML = html;
-            })
-            .catch(err => console.error('Error loading PDFs:', err));
+                        <div class="pdf-meta">
+                            <span><i class="fas fa-file-alt"></i> ${pdf.size}</span>
+                            <span><i class="far fa-calendar"></i> ${pdf.date}</span>
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                // 6. Show detailed error
+                container.innerHTML = `
+                    <div class="error">
+                        <i class="fas fa-bug"></i>
+                        <p>Failed to load PDF list</p>
+                        <small>${error.message}</small>
+                        <button onclick="window.location.reload()">
+                            <i class="fas fa-sync-alt"></i> Retry
+                        </button>
+                    </div>
+                `;
+                console.error("PDF loading error:", error);
+            }
+        });
     </script>
 </body>
 </html>
